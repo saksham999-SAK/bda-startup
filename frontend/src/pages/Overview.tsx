@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import type { DashboardData } from '../types/dashboard';
 import KPICard from '../components/KPICard';
 import {
   Building2, DollarSign, TrendingUp, Users,
-  BarChart2, Activity, XCircle, ArrowUpRight,
+  BarChart2, Activity, XCircle, ArrowUpRight, FileDown, Loader,
 } from 'lucide-react';
 import { formatUSD, formatPct, formatCount, formatDecimal } from '../utils/format';
+import { generateReport } from '../utils/generateReport';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, LineChart, Line,
@@ -36,6 +38,18 @@ function CustomTooltip({ active, payload, label }: TooltipProps) {
 
 export default function Overview({ data }: OverviewProps) {
   const s = data.overall_summary;
+  const [generating, setGenerating] = useState(false);
+
+  const handleGenerateReport = async () => {
+    setGenerating(true);
+    // small delay so the spinner renders before PDF blocks the thread
+    await new Promise(r => setTimeout(r, 80));
+    try {
+      generateReport(data);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   // Build yearly chart data (last 15 years)
   const chartData = data.yearly_trends
@@ -58,14 +72,41 @@ export default function Overview({ data }: OverviewProps) {
       {/* Quick Stats Section */}
       <div className="card" style={{ padding: '22px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 32 }}>
-          {/* Label */}
+          {/* Label + Generate Report button */}
           <div style={{ flexShrink: 0, minWidth: 140 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: '#111111', margin: '0 0 6px' }}>
               Quick Stats
             </h2>
-            <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0, lineHeight: 1.5 }}>
+            <p style={{ fontSize: 12, color: '#9CA3AF', margin: '0 0 14px', lineHeight: 1.5 }}>
               Your statistics for the full dataset period.
             </p>
+            <button
+              onClick={handleGenerateReport}
+              disabled={generating}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '12px 22px',
+                borderRadius: 10,
+                border: 'none',
+                background: generating ? '#B8960C' : 'linear-gradient(135deg, #F5C518 0%, #D4A017 100%)',
+                color: '#1a1a1a',
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: generating ? 'not-allowed' : 'pointer',
+                transition: 'filter 0.2s, transform 0.15s',
+                boxShadow: '0 3px 12px rgba(212,160,23,0.45)',
+                letterSpacing: '0.01em',
+              }}
+              onMouseEnter={e => { if (!generating) { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)'; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; } }}
+              onMouseLeave={e => { if (!generating) { (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1)'; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'; } }}
+            >
+              {generating
+                ? <><Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> Generating…</>
+                : <><FileDown size={13} /> Generate Report</>
+              }
+            </button>
           </div>
 
           {/* Stat cards row */}
@@ -80,13 +121,7 @@ export default function Overview({ data }: OverviewProps) {
               icon={<Building2 size={16} />}
               delay={0.05}
             />
-            <KPICard
-              title="With Funding"
-              value={formatCount(s.disclosed_funding_startups)}
-              icon={<Users size={16} />}
-              delay={0.10}
-            />
-            <KPICard
+<KPICard
               title="Success Rate"
               value={formatPct(s.overall_success_rate_pct)}
               icon={<Activity size={16} />}
